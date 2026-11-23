@@ -1,28 +1,53 @@
 // Warning Label for Humans: One Line, Big Laugh
-//
 // Writes a single-line safety warning label for every human being to
-// /output/entry.txt. The gate requires UTF-8 text of 1 to 160 characters,
-// not only white space, so the program validates the label before writing
-// and verifies the file round-trips byte-identical afterwards.
+// /output/entry.txt, enforcing the competition gate before writing.
+//
+// The gate (see RULES.txt): the output file must be UTF-8 text of 1 to 160
+// characters, not only whitespace, on a single line. The label itself is
+// written fresh in this session.
+
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
+// The label: a real printed-label ingredient list ("runs on X, Y, and Z")
+// whose joke turns on the reader in the last few words.
 const LABEL =
-  "WARNING: Contents may suddenly believe they are the main character. Do not expose to mirrors, microphones, or anyone who disagrees.";
+  "WARNING: This human runs on five hours of sleep, cold coffee, and the unshakable belief that it could do your job better than you.";
 
-// Gate checks: length 1-160, not only white space, one line, no control
-// characters. A stray newline would break the single-line requirement.
-if (LABEL.length < 1 || LABEL.length > 160 || LABEL.trim().length === 0) {
-  throw new Error(`Label is ${LABEL.length} characters; must be 1-160.`);
-}
-if (/[\n\r\t]/.test(LABEL)) {
-  throw new Error("Label must be a single line with no control characters.");
+const OUTPUT_PATH = "/output/entry.txt";
+const MAX_CHARS = 160;
+
+// Gate check 1: length must be 1-160 characters (counted as code points,
+// so any non-ASCII character counts once, the way a reader counts it).
+const charCount = [...LABEL].length;
+if (charCount < 1 || charCount > MAX_CHARS) {
+  throw new Error(
+    `Label is ${charCount} characters; gate requires 1-${MAX_CHARS}.`,
+  );
 }
 
+// Gate check 2: exactly one line - no line breaks of any kind.
+if (/[\r\n]/.test(LABEL)) {
+  throw new Error("Label must be a single line with no line breaks.");
+}
+
+// Gate check 3: no control characters (a printed label has none).
+// eslint-disable-next-line no-control-regex
+if (/[\u0000-\u001F\u007F]/.test(LABEL)) {
+  throw new Error("Label contains control characters.");
+}
+
+// Gate check 4: not only whitespace.
+if (LABEL.trim().length === 0) {
+  throw new Error("Label must not be only whitespace.");
+}
+
+// Write the label, then verify the written file round-trips exactly.
 mkdirSync("/output", { recursive: true });
-writeFileSync("/output/entry.txt", LABEL, "utf8");
-
-const written = readFileSync("/output/entry.txt", "utf8");
+writeFileSync(OUTPUT_PATH, LABEL, "utf8");
+const written = readFileSync(OUTPUT_PATH, "utf8");
 if (written !== LABEL) {
-  throw new Error("Written entry.txt does not match the label.");
+  throw new Error("Round-trip check failed: written file differs from label.");
 }
-console.log(`Wrote ${LABEL.length}-character label to /output/entry.txt`);
+
+console.log(`Wrote ${charCount} characters to ${OUTPUT_PATH}:`);
+console.log(written);
